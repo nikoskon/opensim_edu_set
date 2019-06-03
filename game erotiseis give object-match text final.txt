@@ -1,0 +1,193 @@
+// This work is in the Public Domain. 
+// To view a copy of the public domain certification, visit http://creativecommons.org/licenses/publicdomain/ 
+// or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
+
+string question;        // Text for the current question 
+string options;         // String of options - to be broken into a list
+string posFeedback;     // Positive feedback text for current question
+string negFeedback;     // Negative feedback for current question
+string correct;         // Expected correct answer for current question
+
+list questionSet;       // Full set of question text from notecard
+list optionsSet;        // All option sets from notecard - one string of options per question
+list posFeedbackSet;    // All positive feedback
+list negFeedbackSet;    // All negative feedback
+list correctSet;        // All correct answers
+
+integer active;         // True if currently being used
+integer currentLine;    // For extracting data from notecard
+integer currentQ;       // For tracking number of current question
+integer totalQs;        // Stores total number of questions extracted
+integer score;          // Users score
+
+integer liHandle;       // Handle to remove listener once quiz is complete
+
+key quizUser;           // key of the avatar taking the quiz
+
+
+// Function to reset variables between quiz uses
+resetVars()
+{
+    question = "";
+    options = "";
+    posFeedback = "";
+    negFeedback = "";
+    correct = "";
+
+    questionSet = [];
+    optionsSet = [];
+    posFeedbackSet = [];
+    negFeedbackSet = [];
+    correctSet = [];
+    
+    active = FALSE;
+    currentLine = 0;
+    currentQ = 0;
+    totalQs = 0;
+    score = 0;
+}
+
+// Function to present a question
+presentQuestion()
+{
+    // Obtain list of options - seperated in string by vertical bars
+    list theseOptions = llParseString2List(llList2String(optionsSet, currentQ), ["|"], []);
+    
+    // Output the question
+    llSay(0, (string)(currentQ+1) + ") " + llList2String(questionSet, currentQ)); // Question text
+    integer i;
+    for (i=0; i<llGetListLength(theseOptions); i++) // Options
+    {
+         //llSay(0, (string)(i+1) + "." + llList2String(theseOptions, i));  // puts numbers in front of options
+         llSay(0, "   " + llList2String(theseOptions, i));
+    }
+}
+
+default
+{
+    state_entry()
+    {
+        resetVars();
+    }
+    
+    touch_start(integer num)
+    {
+        // If active
+        if (active)
+        {
+            // Present current question
+            presentQuestion();
+        }
+        else
+        {
+            // Load questions from notecard
+            llSay(0, "-- Starting quiz --");
+            resetVars();
+            active = TRUE;
+            quizUser = llDetectedKey(0);
+            llGetNotecardLine("quiz", currentLine);  
+        }
+    }
+    
+    // Repeatedly called when questions are being loaded
+    dataserver(key query_id, string data)
+    {
+        // If not end of file
+        if (data != EOF)
+        {
+            // Identiy type
+            string type = llGetSubString(data, 0, 0);
+            string value = llGetSubString(data, 1, -1);
+            
+            if (type != "#")
+            {
+                if (type == "?") question = value;
+                else if (type =="*") options += value + "|";
+                else if (type =="!") correct = llToLower(value);    // Use lower case only for answer
+                else if (type =="+") posFeedback = value;
+                else if (type =="-") negFeedback = value;
+                
+                currentLine++;
+                llGetNotecardLine("quiz", currentLine);
+            }
+            else
+            {
+                //end of question block
+                
+                // Store options
+                questionSet += [question];
+                optionsSet += [llGetSubString(options, 0, -1)];
+                posFeedbackSet += [posFeedback];
+                negFeedbackSet += [negFeedback];
+                correctSet += [correct];
+                
+                options = "";
+                
+                totalQs++;
+                
+                // Start loading next
+                currentLine++;
+                llGetNotecardLine("quiz", currentLine);
+            }
+        }   
+        else
+        {
+            // Present first question
+            currentQ = 0;
+            presentQuestion();
+            
+            // Start listeningj to input from person taking the quiz
+            liHandle = llListen(0, "", quizUser, "");
+        }
+    }
+    
+    // Only listens to person that started the quiz
+    listen(integer channel, string name, key id, string message)
+    {
+        // If matches correct answer
+        if (llToLower(message) == llList2String(correctSet, currentQ))
+        {
+            // Show positive feedback
+            llSay(0, llList2String(posFeedbackSet, currentQ));
+            score++;
+        }
+        else
+        {
+            // Show negative feedback
+            llSay(0, llList2String(negFeedbackSet, currentQ));
+        }   
+        
+        currentQ++;
+        // Trigger next question
+        llSetTimerEvent(0);
+        llSetTimerEvent(1);
+    }
+    
+    timer()
+    {
+        llSetTimerEvent(0);
+        
+        if (currentQ < totalQs)
+        {
+            // Trigger next question
+            presentQuestion();
+        }
+        else
+        {
+            llSay(0, "Quiz complete");
+            llSay(0, "You scored " + (string)score + " out of " + (string)totalQs);
+                if (score==totalQs)
+                {
+                    //Elechoume an apantithikan oles sosta
+                llSay(0, "Μπράβο απάντησες σε όλες τις ερωτήσεις, θα σου δώσω το key για τον επόμενο σταθμό");
+                llRezObject(llGetInventoryName(INVENTORY_OBJECT,0), llGetPos()+<-1,0,0>,ZERO_VECTOR,ZERO_ROTATION,0);
+                }
+                else
+                {
+                llSay(0, "Χμ! θα πρέπει να επαναλάβεις το τεστ μέχρι να απαντήσεις σε όλες τις ερωτήσεις σωστά");
+                }    
+            active = FALSE;
+            llListenRemove(liHandle);
+        }
+    }
+}
