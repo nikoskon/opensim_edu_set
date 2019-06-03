@@ -1,0 +1,13 @@
+default
+{
+    // All states should have a state_entry event
+    state_entry()
+    {
+    }
+
+    collision(integer num_detected)
+    {
+        llOwnerSay("Λυπάμαι χάνεις");
+        osCauseDamage(llGetOwner(), 10);
+    }
+}

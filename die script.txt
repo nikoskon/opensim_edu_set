@@ -1,0 +1,7 @@
+default
+{
+state_entry()
+ {
+  llSetDamage(50);//This will take off 50% when a avatar collides with the prim with this script in
+ }
+}

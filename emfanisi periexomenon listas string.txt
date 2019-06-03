@@ -1,0 +1,22 @@
+//Produced by nikoskon
+list gMyNumList = ["αβγ", "δεζ", "ηθι"];
+
+// All LSL programs must have a default state 
+default
+{
+    // All states should have a state_entry event
+    state_entry()
+    {
+    }
+
+    touch_start(integer num_detected)
+    {
+        integer i;
+        for (i = 0; i < 3; i++)
+            {
+                string f;
+                f = llList2String(gMyNumList, i);
+                llOwnerSay((string)(f));
+            }
+    }
+}
